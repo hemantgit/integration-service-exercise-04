@@ -1,0 +1,53 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+    <bean id="jmsConnectionFactory"
+          class="org.apache.activemq.ActiveMQConnectionFactory">
+        <property name="brokerURL" value="tcp://localhost:61616" />
+    </bean>
+
+    <bean id="pooledConnectionFactory"
+          class="org.apache.activemq.pool.PooledConnectionFactory" init-method="start" destroy-method="stop">
+        <property name="maxConnections" value="8" />
+        <property name="connectionFactory" ref="jmsConnectionFactory" />
+    </bean>
+
+    <bean id="jmsConfig"
+          class="org.apache.camel.component.jms.JmsConfiguration">
+        <property name="connectionFactory" ref="pooledConnectionFactory"/>
+        <property name="concurrentConsumers" value="1"/>
+    </bean>
+
+    <bean id="activemq"
+          class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="configuration" ref="jmsConfig"/>
+    </bean>
+
+    <camel:routeContext id="com.backbase.portal.integration.service.exercise04"
+        xmlns="http://camel.apache.org/schema/spring">
+
+        <route id="com.backbase.training.exercise04.1">
+            <from uri="restlet:/game/session/{sessionId}?restletMethod=PUT&amp;restletBinding=#queryStringToHeadersRestletBinding"/>
+            <to uri="jms:queue:UpdateGameSession"/>
+        </route>
+
+        <route id="com.backbase.training.exercise04.2">
+            <from uri="restlet:/player/{username}/highscore?restletMethods=get,put&amp;restletBinding=#queryStringToHeadersRestletBinding"/>
+            <convertBodyTo type="String"/>
+            <log message="Request: ${body}"/>
+            <to uri="jms:queue:UpdatePlayerHighScore"/>
+            <log message="Response: ${body}"/>
+        </route>
+
+        <route id="com.backbase.training.exercise04.3">
+            <from uri="jms:topic:Player.HighScoreUpdated"/>
+            <convertBodyTo type="String"/>
+            <log message="Event received : ${body}." loggingLevel="DEBUG"/>
+            <to uri="file:inbox/highscoreupdate"/>
+        </route>
+
+    </camel:routeContext>
+</beans>
