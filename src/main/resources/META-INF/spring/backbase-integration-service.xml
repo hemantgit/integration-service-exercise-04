@@ -6,7 +6,7 @@
 
     <bean id="jmsConnectionFactory"
           class="org.apache.activemq.ActiveMQConnectionFactory">
-        <property name="brokerURL" value="tcp://localhost:31313" />
+        <property name="brokerURL" value="tcp://localhost:61616" />
     </bean>
 
     <bean id="pooledConnectionFactory"
@@ -29,13 +29,17 @@
     <camel:routeContext id="com.backbase.portal.integration.service.exercise04"
         xmlns="http://camel.apache.org/schema/spring">
 
-        <route id="com.backbase.training.exercise04.1">
+        <route id="com.backbase.training.exercise04.1" streamCache="true">
             <from uri="restlet:/game/session/{sessionId}?restletMethod=PUT&amp;restletBinding=#queryStringToHeadersRestletBinding"/>
+            <log message="Before sending the message to the JMS queue"/>
+            <!-- When using the InOut exchange pattern, the sender waits for a response coming from a temporary queye -->
+            <!-- You can use the "inOnly" tag to force an asynchronous approach instead of "to" -->
             <to uri="jms:queue:UpdateGameSession"/>
+            <log message="UpdateGameSession: in.body = ${in.body} out.body = ${out.body}"/>
         </route>
 
         <route id="com.backbase.training.exercise04.2">
-            <from uri="restlet:/player/{username}/highscore?restletMethods=get,put&amp;restletBinding=#queryStringToHeadersRestletBinding"/>
+            <from uri="restlet:/player/{username}/highscore?restletMethods=PUT&amp;restletBinding=#queryStringToHeadersRestletBinding"/>
             <convertBodyTo type="String"/>
             <log message="Request: ${body}"/>
             <to uri="jms:queue:UpdatePlayerHighScore"/>
